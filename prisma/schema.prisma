@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model FixedCost {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  amount      Decimal
+  due_day     Int
+  category    String
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user_id     String
+
+  @@map("fixed_costs")
+}
+
+model VariableCost {
+  id                   String   @id @default(uuid())
+  month                DateTime
+  ad_accounts_purchase Decimal  @default(0)
+  gateway_percentage   Decimal  @default(0)
+  withdrawal_count     Int      @default(0)
+  withdrawal_total     Decimal? // pode ser calculado, mas mantemos compatível
+  p2p_transfers        Decimal  @default(0)
+  p2p_fees             Decimal? // idem
+  created_at           DateTime @default(now())
+  updated_at           DateTime @updatedAt
+  user_id              String
+
+  @@unique([user_id, month])
+  @@map("variable_costs")
+}
+
+model SporadicCost {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  amount      Decimal
+  date        DateTime
+  category    String?
+  created_at  DateTime @default(now())
+  user_id     String
+
+  @@map("sporadic_costs")
+}
+
+model Revenue {
+  id                 String   @id @default(uuid())
+  month              DateTime
+  total_revenue      Decimal
+  sales_count        Int
+  traffic_investment Decimal
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  user_id            String
+
+  @@unique([user_id, month])
+  @@map("revenue")
+}
+
+model PaymentStatus {
+  id           String   @id @default(uuid())
+  fixed_cost_id String
+  month        DateTime
+  is_paid      Boolean  @default(false)
+  payment_date DateTime?
+  amount_paid  Decimal?
+  notes        String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  user_id      String
+
+  @@map("payment_status")
+}
+
