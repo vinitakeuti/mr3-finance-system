@@ -12,8 +12,9 @@ RUN apk add --no-cache openssl
 COPY package*.json ./
 COPY prisma ./prisma
 
-# Instala dependências de forma reprodutível
-RUN npm ci
+# Instala dependências
+# (use npm ci se o package-lock.json estiver sempre sincronizado com o package.json)
+RUN npm install
 
 # Copia o restante do código
 COPY . .
