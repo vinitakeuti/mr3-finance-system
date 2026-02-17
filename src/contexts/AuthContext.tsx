@@ -2,23 +2,23 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
-interface AuthContextType {
-  user: AuthUser | null;
-  loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
-  signOut: () => Promise<void>;
-}
+type Role = 'MASTER' | 'CONTADOR' | 'CONSULTOR' | 'DESIGNER';
 
 interface AuthUser {
   id: string;
   email: string;
   name: string;
+  role: Role;
 }
 
-const TEST_USER_EMAIL = process.env.NEXT_PUBLIC_AUTH_TEST_EMAIL || 'demo@sistemamr.com';
-const TEST_USER_PASSWORD = process.env.NEXT_PUBLIC_AUTH_TEST_PASSWORD || '123456';
-const TEST_USER_NAME = process.env.NEXT_PUBLIC_AUTH_TEST_NAME || 'Usuário Demo';
+interface AuthContextType {
+  user: AuthUser | null;
+  loading: boolean;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (name: string, email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
+}
+
 const STORAGE_KEY = 'sistemaMR3_auth_user';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -41,27 +41,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    if (email === TEST_USER_EMAIL && password === TEST_USER_PASSWORD) {
-      const loggedUser: AuthUser = {
-        id: 'test-user',
-        email,
-        name: TEST_USER_NAME,
-      };
-      setUser(loggedUser);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(loggedUser));
-      return;
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Erro ao autenticar');
     }
 
-    throw new Error(
-      `Credenciais inválidas. Use email "${TEST_USER_EMAIL}" e senha "${TEST_USER_PASSWORD}".`
-    );
+    const data = (await res.json()) as AuthUser;
+    setUser(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   };
 
-  const signUp = async (email: string, password: string) => {
-    // Ambiente de teste: cadastro de novos usuários desabilitado
-    throw new Error(
-      'Cadastro de novos usuários está desabilitado neste ambiente de teste. Use o usuário de demonstração.'
-    );
+  const signUp = async (name: string, email: string, password: string) => {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Erro ao criar conta');
+    }
+
+    const data = (await res.json()) as AuthUser;
+    setUser(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   };
 
   const signOut = async () => {

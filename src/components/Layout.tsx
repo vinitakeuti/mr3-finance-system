@@ -30,7 +30,11 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
       <header className="border-b border-black dark:border-white">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onViewChange('dashboard')}
+              className="flex items-center gap-3 focus:outline-none"
+            >
               <div className="relative h-12 w-48">
                 <Image
                   src="/assets/images/logo.png"
@@ -42,7 +46,7 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
                 />
               </div>
               <span className="sr-only">Controle Financeiro</span>
-            </div>
+            </button>
 
             <div className="hidden md:flex items-center gap-6">
               {menuItems.map((item) => (
