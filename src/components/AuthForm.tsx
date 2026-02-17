@@ -28,16 +28,16 @@ export function AuthForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black transition-colors">
-      <div className="w-full max-w-md px-6">
-        <div className="border border-black dark:border-white p-8">
+      <div className="w-full max-w-md px-4">
+        <div className="border border-black dark:border-white px-6 pt-10 pb-8">
           <div className="flex flex-col items-center mb-6">
-            <div className="w-16 h-16 mb-4 relative">
+            <div className="w-56 h-24 mb-3 relative">
               <Image
                 src="/assets/images/logo.png"
                 alt="Logo Controle Financeiro"
                 fill
                 className="object-contain"
-                sizes="64px"
+                sizes="128px"
                 priority
               />
             </div>

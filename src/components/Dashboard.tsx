@@ -1,6 +1,6 @@
  'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
@@ -31,6 +31,68 @@ export function Dashboard() {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
+
+  useEffect(() => {
+    const load = async () => {
+      setMetrics(prev => ({ ...prev, unpaidFixedCosts: 0 })); // placeholder enquanto não há payment_status
+
+      const monthParam = selectedMonth;
+      const monthQuery = `month=${encodeURIComponent(monthParam)}`;
+
+      try {
+        const [revenueRes, variableRes, sporadicRes, fixedRes] = await Promise.all([
+          fetch(`/api/revenue?${monthQuery}`),
+          fetch(`/api/variable-costs?${monthQuery}`),
+          fetch(`/api/sporadic-costs?${monthQuery}`),
+          fetch('/api/fixed-costs'),
+        ]);
+
+        const revenueData = revenueRes.ok ? await revenueRes.json() : null;
+        const variableData = variableRes.ok ? await variableRes.json() : null;
+        const sporadicData = sporadicRes.ok ? await sporadicRes.json() : [];
+        const fixedData = fixedRes.ok ? await fixedRes.json() : [];
+
+        const totalRevenue = revenueData?.total_revenue ? Number(revenueData.total_revenue) : 0;
+        const trafficInvestment = revenueData?.traffic_investment ? Number(revenueData.traffic_investment) : 0;
+
+        const totalFixedCosts =
+          Array.isArray(fixedData) && fixedData.length
+            ? fixedData.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+            : 0;
+
+        const totalVariableCosts = variableData
+          ? Number(variableData.ad_accounts_purchase || 0) +
+            Number(variableData.gateway_percentage || 0) +
+            (Number(variableData.withdrawal_count || 0) * 10) +
+            (Number(variableData.p2p_transfers || 0) * 0.05)
+          : 0;
+
+        const totalSporadicCosts =
+          Array.isArray(sporadicData) && sporadicData.length
+            ? sporadicData.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
+            : 0;
+
+        const grossProfit = totalRevenue - trafficInvestment;
+        const netProfit = grossProfit - totalFixedCosts - totalVariableCosts - totalSporadicCosts;
+        const profitPerPartner = netProfit * 0.5;
+
+        setMetrics({
+          totalRevenue,
+          totalFixedCosts,
+          totalVariableCosts,
+          totalSporadicCosts,
+          grossProfit,
+          netProfit,
+          profitPerPartner,
+          unpaidFixedCosts: 0,
+        });
+      } catch (error) {
+        console.error('Erro ao carregar métricas do dashboard', error);
+      }
+    };
+
+    load();
+  }, [selectedMonth]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -63,14 +125,6 @@ export function Dashboard() {
     </div>
   );
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-600 dark:text-gray-400">Carregando métricas...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8">
       <SectionHeader
@@ -89,6 +143,14 @@ export function Dashboard() {
           </div>
         }
       />
+
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Mês selecionado:{' '}
+        {new Date(`${selectedMonth}-01`).toLocaleDateString('pt-BR', {
+          month: 'long',
+          year: 'numeric',
+        })}
+      </p>
 
       {metrics.unpaidFixedCosts > 0 && (
         <div className="border border-red-500 bg-red-50 dark:bg-red-900/20 p-4">

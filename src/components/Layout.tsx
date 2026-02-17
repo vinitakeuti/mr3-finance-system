@@ -1,6 +1,7 @@
  'use client';
 
 import { Moon, Sun, LogOut, Menu, X } from 'lucide-react';
+import Image from 'next/image';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
@@ -27,11 +28,21 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
   return (
     <div className="min-h-screen bg-white dark:bg-black transition-colors">
       <header className="border-b border-black dark:border-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <h1 className="text-xl font-bold text-black dark:text-white">
-              Controle Financeiro
-            </h1>
+            <div className="flex items-center gap-3">
+              <div className="relative h-12 w-48">
+                <Image
+                  src="/assets/images/logo.png"
+                  alt="MR3 Digital"
+                  fill
+                  className="object-contain"
+                  sizes="112px"
+                  priority
+                />
+              </div>
+              <span className="sr-only">Controle Financeiro</span>
+            </div>
 
             <div className="hidden md:flex items-center gap-6">
               {menuItems.map((item) => (
