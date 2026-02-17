@@ -45,13 +45,6 @@ export function AuthForm() {
               Controle Financeiro
             </h1>
           </div>
-          <p className="text-gray-600 dark:text-gray-400 mb-4 text-center">
-            Acesse com as credenciais de teste definidas no arquivo de ambiente (.env).
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500 mb-8 text-center">
-            Padrão: email <span className="font-mono">demo@sistemamr.com</span> e senha <span className="font-mono">123456</span>, 
-            caso você não tenha sobrescrito as variáveis <span className="font-mono">NEXT_PUBLIC_AUTH_TEST_EMAIL</span> e <span className="font-mono">NEXT_PUBLIC_AUTH_TEST_PASSWORD</span>.
-          </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>

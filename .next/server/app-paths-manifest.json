@@ -1,10 +1,3 @@
 {
-  "/page": "app/page.js",
-  "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/api/variable-costs/route": "app/api/variable-costs/route.js",
-  "/api/admin/users/route": "app/api/admin/users/route.js",
-  "/api/admin/allowed-emails/route": "app/api/admin/allowed-emails/route.js",
-  "/api/revenue/route": "app/api/revenue/route.js",
-  "/api/fixed-costs/route": "app/api/fixed-costs/route.js",
-  "/api/sporadic-costs/route": "app/api/sporadic-costs/route.js"
+  "/page": "app/page.js"
 }
