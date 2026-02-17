@@ -1,6 +1,6 @@
- 'use client';
+'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Save } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
@@ -16,15 +16,78 @@ export function VariableCosts() {
     withdrawal_count: '',
     p2p_transfers: '',
   });
-  const [existingId] = useState<string | null>(null);
+  const [existingId, setExistingId] = useState<string | null>(null);
+
+  // Carrega dados salvos do mês selecionado
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/variable-costs?month=${encodeURIComponent(selectedMonth)}`);
+        if (!res.ok) {
+          return;
+        }
+        const data = await res.json();
+        if (!data) {
+          setExistingId(null);
+          setFormData({
+            ad_accounts_purchase: '',
+            gateway_percentage: '',
+            withdrawal_count: '',
+            p2p_transfers: '',
+          });
+          return;
+        }
+
+        setExistingId(data.id ?? null);
+        setFormData({
+          ad_accounts_purchase: String(data.ad_accounts_purchase ?? ''),
+          gateway_percentage: String(data.gateway_percentage ?? ''),
+          withdrawal_count: String(data.withdrawal_count ?? ''),
+          p2p_transfers: String(data.p2p_transfers ?? ''),
+        });
+      } catch (error) {
+        console.error('Erro ao carregar custos variáveis', error);
+      }
+    };
+
+    load();
+  }, [selectedMonth]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     setLoading(true);
-    // Modo teste: apenas simula salvamento local, sem banco de dados
-    alert('Custos variáveis salvos (modo teste, sem integração com banco de dados).');
-    setLoading(false);
+    try {
+      const payload = {
+        month: selectedMonth,
+        ad_accounts_purchase: parseFloat(formData.ad_accounts_purchase) || 0,
+        gateway_percentage: parseFloat(formData.gateway_percentage) || 0,
+        withdrawal_count: parseInt(formData.withdrawal_count) || 0,
+        p2p_transfers: parseFloat(formData.p2p_transfers) || 0,
+      };
+
+      const res = await fetch('/api/variable-costs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error?.error || 'Erro ao salvar custos variáveis');
+      }
+
+      const saved = await res.json();
+      setExistingId(saved.id ?? null);
+      alert('Custos variáveis salvos com sucesso!');
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao salvar custos variáveis.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatCurrency = (value: number) => {

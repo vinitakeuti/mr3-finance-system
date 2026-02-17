@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
@@ -27,6 +27,37 @@ export function FixedCosts() {
     sector: 'geral',
   });
 
+  // Carrega custos fixos salvos no banco
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/fixed-costs');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          setCosts([]);
+          return;
+        }
+
+        const mapped: FixedCost[] = data.map((item: any) => ({
+          id: String(item.id),
+          name: String(item.name),
+          description: item.description ?? '',
+          amount: Number(item.amount ?? 0),
+          due_day: Number(item.due_day ?? 1),
+          sector: String(item.category ?? 'geral'),
+        }));
+
+        setCosts(mapped);
+      } catch (error) {
+        console.error('Erro ao carregar custos fixos', error);
+      }
+    };
+
+    load();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const costData: Omit<FixedCost, 'id'> = {
@@ -37,26 +68,93 @@ export function FixedCosts() {
       sector: formData.sector,
     };
 
-    if (editingId) {
-      setCosts(prev =>
-        prev.map(cost => (cost.id === editingId ? { ...cost, ...costData } : cost)),
-      );
+    const payload = {
+      name: costData.name,
+      description: costData.description || null,
+      amount: costData.amount,
+      due_day: costData.due_day,
+      category: costData.sector,
+    };
+
+    try {
+      if (editingId) {
+        const res = await fetch(`/api/fixed-costs/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error?.error || 'Erro ao atualizar custo fixo');
+        }
+
+        const updated = await res.json();
+        setCosts(prev =>
+          prev.map(cost =>
+            cost.id === editingId
+              ? {
+                  id: String(updated.id),
+                  name: String(updated.name),
+                  description: updated.description ?? '',
+                  amount: Number(updated.amount ?? 0),
+                  due_day: Number(updated.due_day ?? 1),
+                  sector: String(updated.category ?? 'geral'),
+                }
+              : cost,
+          ),
+        );
+      } else {
+        const res = await fetch('/api/fixed-costs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error?.error || 'Erro ao criar custo fixo');
+        }
+
+        const created = await res.json();
+        setCosts(prev => [
+          ...prev,
+          {
+            id: String(created.id),
+            name: String(created.name),
+            description: created.description ?? '',
+            amount: Number(created.amount ?? 0),
+            due_day: Number(created.due_day ?? 1),
+            sector: String(created.category ?? 'geral'),
+          },
+        ]);
+      }
+
       resetForm();
-    } else {
-      setCosts(prev => [
-        ...prev,
-        {
-          id: createId(),
-          ...costData,
-        },
-      ]);
-      resetForm();
+      alert('Custo fixo salvo com sucesso!');
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao salvar custo fixo.');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir este custo?')) return;
-    setCosts(prev => prev.filter(cost => cost.id !== id));
+    try {
+      const res = await fetch(`/api/fixed-costs/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error?.error || 'Erro ao excluir custo fixo');
+      }
+
+      setCosts(prev => prev.filter(cost => cost.id !== id));
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao excluir custo fixo.');
+    }
   };
 
   const handleEdit = (cost: FixedCost) => {
@@ -69,18 +167,6 @@ export function FixedCosts() {
       sector: cost.sector,
     });
     setShowForm(true);
-  };
-
-  const togglePayment = (costId: string) => {
-    setPaymentStatuses(prev => {
-      const current = prev[costId];
-      return {
-        ...prev,
-        [costId]: {
-          is_paid: !current?.is_paid,
-        },
-      };
-    });
   };
 
   const resetForm = () => {

@@ -1,6 +1,6 @@
- 'use client';
+'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Save, TrendingUp } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 import jsPDF from 'jspdf';
@@ -29,34 +29,120 @@ export function Revenue() {
   });
   const [existingId, setExistingId] = useState<string | null>(null);
 
+  // Carrega dados do mês selecionado
+  useEffect(() => {
+    const loadCurrent = async () => {
+      try {
+        const res = await fetch(`/api/revenue?month=${encodeURIComponent(selectedMonth)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (!data) {
+          setExistingId(null);
+          setFormData({
+            total_revenue: '',
+            sales_count: '',
+            traffic_investment: '',
+          });
+          return;
+        }
+
+        setExistingId(data.id ?? null);
+        setFormData({
+          total_revenue: String(data.total_revenue ?? ''),
+          sales_count: String(data.sales_count ?? ''),
+          traffic_investment: String(data.traffic_investment ?? ''),
+        });
+      } catch (error) {
+        console.error('Erro ao carregar faturamento do mês', error);
+      }
+    };
+
+    loadCurrent();
+  }, [selectedMonth]);
+
+  // Carrega histórico (últimos meses)
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const res = await fetch('/api/revenue');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          setRevenueHistory([]);
+          return;
+        }
+
+        const mapped: RevenueEntry[] = data.map((item: any) => ({
+          id: String(item.month),
+          month: String(item.month),
+          total_revenue: Number(item.total_revenue ?? 0),
+          sales_count: Number(item.sales_count ?? 0),
+          traffic_investment: Number(item.traffic_investment ?? 0),
+        }));
+
+        setRevenueHistory(mapped);
+      } catch (error) {
+        console.error('Erro ao carregar histórico de faturamento', error);
+      }
+    };
+
+    loadHistory();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const monthDate = `${selectedMonth}-01`;
-
-    const revenueData: Omit<RevenueEntry, 'id'> = {
-      month: monthDate,
+    const payload = {
+      month: selectedMonth,
       total_revenue: parseFloat(formData.total_revenue) || 0,
       sales_count: parseInt(formData.sales_count) || 0,
       traffic_investment: parseFloat(formData.traffic_investment) || 0,
     };
 
-    if (existingId) {
-      setRevenueHistory(prev =>
-        prev.map(entry => (entry.id === existingId ? { ...entry, ...revenueData } : entry)),
-      );
-      alert('Faturamento atualizado com sucesso! (modo teste, sem banco de dados)');
-    } else {
-      const id = createId();
-      setRevenueHistory(prev => [
-        { id, ...revenueData },
-        ...prev,
-      ]);
-      setExistingId(id);
-      alert('Faturamento salvo com sucesso! (modo teste, sem banco de dados)');
-    }
+    try {
+      const res = await fetch('/api/revenue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
-    setLoading(false);
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error?.error || 'Erro ao salvar faturamento');
+      }
+
+      const saved = await res.json();
+      setExistingId(saved.id ?? null);
+
+      // Atualiza histórico após salvar
+      try {
+        const histRes = await fetch('/api/revenue');
+        if (histRes.ok) {
+          const data = await histRes.json();
+          if (Array.isArray(data)) {
+            const mapped: RevenueEntry[] = data.map((item: any) => ({
+              id: String(item.month),
+              month: String(item.month),
+              total_revenue: Number(item.total_revenue ?? 0),
+              sales_count: Number(item.sales_count ?? 0),
+              traffic_investment: Number(item.traffic_investment ?? 0),
+            }));
+            setRevenueHistory(mapped);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao atualizar histórico após salvar faturamento', err);
+      }
+
+      alert('Faturamento salvo com sucesso!');
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao salvar faturamento.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatCurrency = (value: number) => {
@@ -67,7 +153,7 @@ export function Revenue() {
   };
 
   const formatMonth = (monthString: string) => {
-    return new Date(monthString + 'T00:00:00').toLocaleDateString('pt-BR', {
+    return new Date(monthString).toLocaleDateString('pt-BR', {
       year: 'numeric',
       month: 'long',
     });

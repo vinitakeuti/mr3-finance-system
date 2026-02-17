@@ -1,6 +1,6 @@
- 'use client';
+'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
@@ -31,6 +31,39 @@ export function SporadicCosts() {
     category: 'geral',
   });
 
+  // Carrega custos esporádicos do mês selecionado
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(
+          `/api/sporadic-costs?month=${encodeURIComponent(selectedMonth)}`,
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          setCosts([]);
+          return;
+        }
+
+        const mapped: SporadicCost[] = data.map((item: any) => ({
+          id: String(item.id),
+          name: String(item.name),
+          description: item.description ?? '',
+          amount: Number(item.amount ?? 0),
+          date: (item.date as string)?.slice(0, 10),
+          category: String(item.category ?? 'geral'),
+        }));
+
+        setCosts(mapped);
+      } catch (error) {
+        console.error('Erro ao carregar custos esporádicos', error);
+      }
+    };
+
+    load();
+  }, [selectedMonth]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const costData: Omit<SporadicCost, 'id'> = {
@@ -41,26 +74,93 @@ export function SporadicCosts() {
       category: formData.category,
     };
 
-    if (editingId) {
-      setCosts(prev =>
-        prev.map(cost => (cost.id === editingId ? { ...cost, ...costData } : cost)),
-      );
+    const payload = {
+      name: costData.name,
+      description: costData.description || null,
+      amount: costData.amount,
+      date: costData.date,
+      category: costData.category,
+    };
+
+    try {
+      if (editingId) {
+        const res = await fetch(`/api/sporadic-costs/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error?.error || 'Erro ao atualizar custo esporádico');
+        }
+
+        const updated = await res.json();
+        setCosts(prev =>
+          prev.map(cost =>
+            cost.id === editingId
+              ? {
+                  id: String(updated.id),
+                  name: String(updated.name),
+                  description: updated.description ?? '',
+                  amount: Number(updated.amount ?? 0),
+                  date: (updated.date as string)?.slice(0, 10),
+                  category: String(updated.category ?? 'geral'),
+                }
+              : cost,
+          ),
+        );
+      } else {
+        const res = await fetch('/api/sporadic-costs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error?.error || 'Erro ao criar custo esporádico');
+        }
+
+        const created = await res.json();
+        setCosts(prev => [
+          ...prev,
+          {
+            id: String(created.id),
+            name: String(created.name),
+            description: created.description ?? '',
+            amount: Number(created.amount ?? 0),
+            date: (created.date as string)?.slice(0, 10),
+            category: String(created.category ?? 'geral'),
+          },
+        ]);
+      }
+
       resetForm();
-    } else {
-      setCosts(prev => [
-        ...prev,
-        {
-          id: createId(),
-          ...costData,
-        },
-      ]);
-      resetForm();
+      alert('Custo esporádico salvo com sucesso!');
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao salvar custo esporádico.');
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir este custo?')) return;
-    setCosts(prev => prev.filter(cost => cost.id !== id));
+    try {
+      const res = await fetch(`/api/sporadic-costs/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error?.error || 'Erro ao excluir custo esporádico');
+      }
+
+      setCosts(prev => prev.filter(cost => cost.id !== id));
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || 'Erro ao excluir custo esporádico.');
+    }
   };
 
   const handleEdit = (cost: SporadicCost) => {
