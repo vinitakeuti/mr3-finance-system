@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Save, TrendingUp } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
+import jsPDF from 'jspdf';
 
 interface RevenueEntry {
   id: string;
@@ -84,10 +85,41 @@ export function Revenue() {
     return sales > 0 ? revenue / sales : 0;
   };
 
+  const calculateMargin = () => {
+    const revenue = parseFloat(formData.total_revenue) || 0;
+    const investment = parseFloat(formData.traffic_investment) || 0;
+    if (revenue <= 0) return 0;
+    const lucro = revenue - investment;
+    return (lucro / revenue) * 100;
+  };
+
+  const handleGeneratePdf = () => {
+    const doc = new jsPDF();
+
+    const revenue = parseFloat(formData.total_revenue) || 0;
+    const investment = parseFloat(formData.traffic_investment) || 0;
+    const gross = calculateGrossProfit();
+    const margin = calculateMargin();
+    const ticket = calculateTicketMedio();
+
+    doc.setFontSize(18);
+    doc.text('Resumo Financeiro', 20, 20);
+
+    doc.setFontSize(12);
+    doc.text(`Mês: ${selectedMonth || '-'}`, 20, 32);
+    doc.text(`Faturamento total: ${formatCurrency(revenue)}`, 20, 42);
+    doc.text(`Investimento em tráfego: ${formatCurrency(investment)}`, 20, 50);
+    doc.text(`Lucro bruto: ${formatCurrency(gross)}`, 20, 58);
+    doc.text(`Margem de lucro: ${margin.toFixed(1)}%`, 20, 66);
+    doc.text(`Ticket médio: ${formatCurrency(ticket)}`, 20, 74);
+
+    doc.save(`resumo-${selectedMonth || 'mes'}.pdf`);
+  };
+
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Faturamento"
+        title="Resumo"
         rightSlot={
           <div>
             <label className="block text-sm font-medium text-black dark:text-white mb-2">
@@ -125,6 +157,18 @@ export function Revenue() {
             })()}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Retorno sobre investimento</p>
+        </div>
+        <div className="border border-black dark:border-white p-6">
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Margem de Lucro</p>
+          <p className="text-2xl font-bold text-black dark:text-white">
+            {(() => {
+              const margin = calculateMargin();
+              return margin.toFixed(1) + '%';
+            })()}
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+            (Faturamento - Tráfego) / Faturamento
+          </p>
         </div>
       </div>
 
@@ -186,6 +230,13 @@ export function Revenue() {
           >
             <Save className="w-4 h-4" />
             {loading ? 'Salvando...' : existingId ? 'Atualizar' : 'Salvar'}
+          </button>
+          <button
+            type="button"
+            onClick={handleGeneratePdf}
+            className="mt-4 inline-flex items-center px-6 py-2 border border-black dark:border-white text-sm font-medium text-black dark:text-white hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+          >
+            Gerar PDF de Resumo
           </button>
         </form>
       </div>

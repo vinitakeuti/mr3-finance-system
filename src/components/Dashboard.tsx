@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
@@ -15,6 +15,13 @@ interface FinancialMetrics {
   unpaidFixedCosts: number;
 }
 
+interface FixedCostSummary {
+  id: string;
+  name: string;
+  amount: number;
+  due_day: number;
+}
+
 export function Dashboard() {
   const [metrics, setMetrics] = useState<FinancialMetrics>({
     totalRevenue: 0,
@@ -26,6 +33,7 @@ export function Dashboard() {
     profitPerPartner: 0,
     unpaidFixedCosts: 0,
   });
+  const [fixedCosts, setFixedCosts] = useState<FixedCostSummary[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -50,6 +58,17 @@ export function Dashboard() {
         const variableData = variableRes.ok ? await variableRes.json() : null;
         const sporadicData = sporadicRes.ok ? await sporadicRes.json() : [];
         const fixedData = fixedRes.ok ? await fixedRes.json() : [];
+
+        setFixedCosts(
+          Array.isArray(fixedData)
+            ? fixedData.map((f: any) => ({
+                id: String(f.id),
+                name: String(f.name),
+                amount: Number(f.amount || 0),
+                due_day: Number(f.due_day || 1),
+              }))
+            : [],
+        );
 
         const totalRevenue = revenueData?.total_revenue ? Number(revenueData.total_revenue) : 0;
         const trafficInvestment = revenueData?.traffic_investment
@@ -103,6 +122,13 @@ export function Dashboard() {
     }).format(value);
   };
 
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+    }).format(date);
+  };
+
   const StatCard = ({
     title,
     value,
@@ -142,6 +168,35 @@ export function Dashboard() {
       </div>
     </div>
   );
+
+  const upcomingPayments = useMemo(() => {
+    if (!fixedCosts.length) return [];
+    const [yearStr, monthStr] = selectedMonth.split('-');
+    const year = Number(yearStr);
+    const month = Number(monthStr) - 1;
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    const items = fixedCosts.map(cost => {
+      const date = new Date(year, month, cost.due_day || 1);
+      return { ...cost, date };
+    });
+
+    return items
+      .filter(item => {
+        // se for o mês atual, só mostrar de hoje em diante
+        if (
+          item.date.getFullYear() === todayStart.getFullYear() &&
+          item.date.getMonth() === todayStart.getMonth()
+        ) {
+          return item.date >= todayStart;
+        }
+        // se for outro mês selecionado, mostra todos daquele mês
+        return true;
+      })
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .slice(0, 5);
+  }, [fixedCosts, selectedMonth]);
 
   return (
     <div className="space-y-8">
@@ -197,39 +252,68 @@ export function Dashboard() {
         />
       </div>
 
-      <div className="border border-black dark:border-white p-6">
-        <h3 className="text-xl font-bold text-black dark:text-white mb-6">
-          Resumo de Custos
-        </h3>
-        <div className="space-y-4">
-          <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
-            <span className="text-gray-600 dark:text-gray-400">Custos Fixos</span>
-            <span className="font-medium text-black dark:text-white">
-              {formatCurrency(metrics.totalFixedCosts)}
-            </span>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="border border-black dark:border-white p-6 lg:col-span-2">
+          <h3 className="text-xl font-bold text-black dark:text-white mb-6">
+            Resumo de Custos
+          </h3>
+          <div className="space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
+              <span className="text-gray-600 dark:text-gray-400">Custos Fixos</span>
+              <span className="font-medium text-black dark:text-white">
+                {formatCurrency(metrics.totalFixedCosts)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
+              <span className="text-gray-600 dark:text-gray-400">Custos Variáveis</span>
+              <span className="font-medium text-black dark:text-white">
+                {formatCurrency(metrics.totalVariableCosts)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
+              <span className="text-gray-600 dark:text-gray-400">Custos Esporádicos</span>
+              <span className="font-medium text-black dark:text-white">
+                {formatCurrency(metrics.totalSporadicCosts)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-3">
+              <span className="font-bold text-black dark:text-white">Total de Custos</span>
+              <span className="font-bold text-black dark:text-white">
+                {formatCurrency(
+                  metrics.totalFixedCosts +
+                    metrics.totalVariableCosts +
+                    metrics.totalSporadicCosts,
+                )}
+              </span>
+            </div>
           </div>
-          <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
-            <span className="text-gray-600 dark:text-gray-400">Custos Variáveis</span>
-            <span className="font-medium text-black dark:text-white">
-              {formatCurrency(metrics.totalVariableCosts)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
-            <span className="text-gray-600 dark:text-gray-400">Custos Esporádicos</span>
-            <span className="font-medium text-black dark:text-white">
-              {formatCurrency(metrics.totalSporadicCosts)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center pt-3">
-            <span className="font-bold text-black dark:text-white">Total de Custos</span>
-            <span className="font-bold text-black dark:text-white">
-              {formatCurrency(
-                metrics.totalFixedCosts +
-                  metrics.totalVariableCosts +
-                  metrics.totalSporadicCosts,
-              )}
-            </span>
-          </div>
+        </div>
+
+        <div className="border border-black dark:border-white p-6">
+          <h3 className="text-xl font-bold text-black dark:text-white mb-4">
+            Próximos Custos Fixos
+          </h3>
+          {upcomingPayments.length === 0 ? (
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Nenhum custo fixo próximo para o mês selecionado.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {upcomingPayments.map(item => (
+                <li key={item.id} className="flex justify-between items-center">
+                  <div>
+                    <p className="font-medium text-black dark:text-white">{item.name}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {formatCurrency(item.amount)}
+                    </p>
+                  </div>
+                  <span className="text-sm font-medium text-black dark:text-white">
+                    {formatDate(item.date)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

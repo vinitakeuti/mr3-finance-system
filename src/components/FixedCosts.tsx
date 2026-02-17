@@ -1,7 +1,7 @@
- 'use client';
+'use client';
 
-import { useState } from 'react';
-import { Plus, Edit2, Trash2, Check } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Plus, Edit2, Trash2 } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
 type FixedCost = {
@@ -10,30 +10,21 @@ type FixedCost = {
   description?: string;
   amount: number;
   due_day: number;
-  category: string;
-};
-
-type PaymentStatus = {
-  is_paid: boolean;
+  sector: string;
 };
 
 const createId = () => Math.random().toString(36).slice(2);
 
 export function FixedCosts() {
   const [costs, setCosts] = useState<FixedCost[]>([]);
-  const [paymentStatuses, setPaymentStatuses] = useState<Record<string, PaymentStatus>>({});
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [selectedMonth, setSelectedMonth] = useState(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-  });
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     amount: '',
     due_day: '',
-    category: 'ferramentas',
+    sector: 'geral',
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -43,7 +34,7 @@ export function FixedCosts() {
       description: formData.description || '',
       amount: parseFloat(formData.amount),
       due_day: parseInt(formData.due_day),
-      category: formData.category,
+      sector: formData.sector,
     };
 
     if (editingId) {
@@ -66,11 +57,6 @@ export function FixedCosts() {
   const handleDelete = async (id: string) => {
     if (!confirm('Deseja realmente excluir este custo?')) return;
     setCosts(prev => prev.filter(cost => cost.id !== id));
-    setPaymentStatuses(prev => {
-      const updated = { ...prev };
-      delete updated[id];
-      return updated;
-    });
   };
 
   const handleEdit = (cost: FixedCost) => {
@@ -80,7 +66,7 @@ export function FixedCosts() {
       description: cost.description || '',
       amount: cost.amount.toString(),
       due_day: cost.due_day.toString(),
-      category: cost.category,
+      sector: cost.sector,
     });
     setShowForm(true);
   };
@@ -103,7 +89,7 @@ export function FixedCosts() {
       description: '',
       amount: '',
       due_day: '',
-      category: 'ferramentas',
+      sector: 'geral',
     });
     setEditingId(null);
     setShowForm(false);
@@ -116,26 +102,30 @@ export function FixedCosts() {
     }).format(value);
   };
 
+  const groupedBySector = useMemo(() => {
+    const groups: Record<string, FixedCost[]> = {};
+    for (const cost of costs) {
+      const key = cost.sector || 'geral';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(cost);
+    }
+    return groups;
+  }, [costs]);
+
+  const sectorNames = Object.keys(groupedBySector).sort();
+
   return (
     <div className="space-y-6">
       <SectionHeader
-        title="Custos Fixos"
+        title="Custos Fixos por Setor"
         rightSlot={
-          <div className="flex gap-3">
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-4 py-2 border border-black dark:border-white bg-transparent text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
-            />
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              Adicionar
-            </button>
-          </div>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="flex items-center gap-2 px-4 py-2 bg-black dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Adicionar Custo Fixo
+          </button>
         }
       />
 
@@ -161,17 +151,18 @@ export function FixedCosts() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-black dark:text-white mb-2">
-                  Categoria *
+                  Setor *
                 </label>
                 <select
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  value={formData.sector}
+                  onChange={(e) => setFormData({ ...formData, sector: e.target.value })}
                   className="w-full px-4 py-2 border border-black dark:border-white bg-white dark:bg-black text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
                 >
-                  <option value="hospedagem">Hospedagem</option>
-                  <option value="ferramentas">Ferramentas</option>
-                  <option value="colaborador">Colaborador</option>
-                  <option value="outros">Outros</option>
+                  <option value="geral">Geral</option>
+                  <option value="marketing">Marketing</option>
+                  <option value="operacional">Operacional</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="tecnologia">Tecnologia</option>
                 </select>
               </div>
               <div>
@@ -236,53 +227,57 @@ export function FixedCosts() {
         </div>
       )}
 
-      <div className="border border-black dark:border-white">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-black dark:border-white">
-                <th className="text-left p-4 text-sm font-medium text-black dark:text-white">Nome</th>
-                <th className="text-left p-4 text-sm font-medium text-black dark:text-white">Categoria</th>
-                <th className="text-left p-4 text-sm font-medium text-black dark:text-white">Valor</th>
-                <th className="text-left p-4 text-sm font-medium text-black dark:text-white">Vencimento</th>
-                <th className="text-center p-4 text-sm font-medium text-black dark:text-white">Pago</th>
-                <th className="text-center p-4 text-sm font-medium text-black dark:text-white">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {costs.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center p-8 text-gray-600 dark:text-gray-400">
-                    Nenhum custo fixo cadastrado
-                  </td>
-                </tr>
-              ) : (
-                costs.map((cost) => {
-                  const isPaid = paymentStatuses[cost.id]?.is_paid || false;
-                  return (
-                    <tr key={cost.id} className="border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900">
+      {costs.length === 0 ? (
+        <div className="border border-black dark:border-white p-8 text-center text-gray-600 dark:text-gray-400">
+          Nenhum custo fixo cadastrado.
+        </div>
+      ) : (
+        sectorNames.map(sector => (
+          <div key={sector} className="border border-black dark:border-white">
+            <div className="border-b border-black dark:border-white px-4 py-3 bg-gray-50 dark:bg-gray-900">
+              <h3 className="text-lg font-bold text-black dark:text-white">
+                Setor: {sector}
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-black dark:border-white">
+                    <th className="text-left p-4 text-sm font-medium text-black dark:text-white">
+                      Nome
+                    </th>
+                    <th className="text-left p-4 text-sm font-medium text-black dark:text-white">
+                      Valor
+                    </th>
+                    <th className="text-left p-4 text-sm font-medium text-black dark:text-white">
+                      Vencimento
+                    </th>
+                    <th className="text-center p-4 text-sm font-medium text-black dark:text-white">
+                      Ações
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {groupedBySector[sector].map(cost => (
+                    <tr
+                      key={cost.id}
+                      className="border-b border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-900"
+                    >
                       <td className="p-4">
                         <div>
                           <p className="font-medium text-black dark:text-white">{cost.name}</p>
                           {cost.description && (
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{cost.description}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {cost.description}
+                            </p>
                           )}
                         </div>
                       </td>
-                      <td className="p-4 text-gray-700 dark:text-gray-300">{cost.category}</td>
-                      <td className="p-4 font-medium text-black dark:text-white">{formatCurrency(Number(cost.amount))}</td>
-                      <td className="p-4 text-gray-700 dark:text-gray-300">Dia {cost.due_day}</td>
-                      <td className="p-4">
-                        <button
-                          onClick={() => togglePayment(cost.id)}
-                          className={`mx-auto flex items-center justify-center w-8 h-8 border-2 transition-colors ${
-                            isPaid
-                              ? 'border-black dark:border-white bg-black dark:bg-white'
-                              : 'border-gray-400 dark:border-gray-600 hover:border-black dark:hover:border-white'
-                          }`}
-                        >
-                          {isPaid && <Check className="w-4 h-4 text-white dark:text-black" />}
-                        </button>
+                      <td className="p-4 font-medium text-black dark:text-white">
+                        {formatCurrency(Number(cost.amount))}
+                      </td>
+                      <td className="p-4 text-gray-700 dark:text-gray-300">
+                        Dia {cost.due_day}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center justify-center gap-2">
@@ -301,13 +296,13 @@ export function FixedCosts() {
                         </div>
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ))
+      )}
     </div>
   );
 }

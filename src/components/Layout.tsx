@@ -22,7 +22,7 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
     { id: 'fixed', label: 'Custos Fixos' },
     { id: 'variable', label: 'Custos Variáveis' },
     { id: 'sporadic', label: 'Custos Esporádicos' },
-    { id: 'revenue', label: 'Faturamento' },
+    { id: 'revenue', label: 'Resumo' },
   ];
 
   const adminMenuItems =
