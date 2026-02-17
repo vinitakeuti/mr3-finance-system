@@ -14,16 +14,26 @@ interface LayoutProps {
 
 export function Layout({ children, currentView, onViewChange }: LayoutProps) {
   const { theme, toggleTheme } = useTheme();
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const menuItems = [
+  const baseMenuItems = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'fixed', label: 'Custos Fixos' },
     { id: 'variable', label: 'Custos Variáveis' },
     { id: 'sporadic', label: 'Custos Esporádicos' },
     { id: 'revenue', label: 'Faturamento' },
   ];
+
+  const adminMenuItems =
+    user?.role === 'MASTER'
+      ? [
+          { id: 'admin-users', label: 'Admin Usuários' },
+          { id: 'admin-allowed-emails', label: 'Admin Emails' },
+        ]
+      : [];
+
+  const menuItems = [...baseMenuItems, ...adminMenuItems];
 
   return (
     <div className="min-h-screen bg-white dark:bg-black transition-colors">

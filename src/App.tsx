@@ -9,6 +9,8 @@ import { FixedCosts } from './components/FixedCosts';
 import { VariableCosts } from './components/VariableCosts';
 import { SporadicCosts } from './components/SporadicCosts';
 import { Revenue } from './components/Revenue';
+import { AdminUsers } from './components/AdminUsers';
+import { AdminAllowedEmails } from './components/AdminAllowedEmails';
 
 function App() {
   const { user, loading } = useAuth();
@@ -38,6 +40,10 @@ function App() {
         return <SporadicCosts />;
       case 'revenue':
         return <Revenue />;
+      case 'admin-users':
+        return <AdminUsers />;
+      case 'admin-allowed-emails':
+        return <AdminAllowedEmails />;
       default:
         return <Dashboard />;
     }
