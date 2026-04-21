@@ -12,6 +12,7 @@ const PUBLIC_ROUTES = [
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/logout',
+  '/api/auth/me',
 ];
 
 // Rate limiting: track login attempts per IP

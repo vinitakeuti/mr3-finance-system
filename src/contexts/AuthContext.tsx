@@ -29,16 +29,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
+    // Validate session against server on every load
+    (async () => {
       try {
-        const parsed = JSON.parse(stored) as AuthUser;
-        setUser(parsed);
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = (await res.json()) as AuthUser;
+          setUser(data);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } else {
+          // Cookie invalid or expired — force logout
+          setUser(null);
+          localStorage.removeItem(STORAGE_KEY);
+        }
       } catch {
-        localStorage.removeItem(STORAGE_KEY);
+        // Network error — fallback to localStorage (offline support)
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          try { setUser(JSON.parse(stored) as AuthUser); } catch { localStorage.removeItem(STORAGE_KEY); }
+        }
       }
-    }
-    setLoading(false);
+      setLoading(false);
+    })();
   }, []);
 
   const signIn = async (email: string, password: string) => {
