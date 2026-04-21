@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const TEST_USER_ID = 'test-user';
+import { requireAuth } from '@/lib/auth';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+
   try {
     const { name, content, link, category_id } = await req.json();
 
-    const existing = await prisma.vaultItem.findFirst({ where: { id, user_id: TEST_USER_ID } });
+    const existing = await prisma.vaultItem.findFirst({ where: { id, user_id: auth.userId } });
     if (!existing) return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 });
 
     const updated = await prisma.vaultItem.update({
@@ -30,9 +32,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+
   try {
-    const deleted = await prisma.vaultItem.deleteMany({ where: { id, user_id: TEST_USER_ID } });
+    const deleted = await prisma.vaultItem.deleteMany({ where: { id, user_id: auth.userId } });
     if (!deleted.count) return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {

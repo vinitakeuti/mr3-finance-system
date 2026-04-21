@@ -40,7 +40,7 @@ function App() {
       case 'revenue':
         return <Revenue />;
       case 'vault':
-        return <Vault />;
+        return user?.canAccessVault ? <Vault /> : <Dashboard />;
       case 'kanban':
         return <Kanban />;
       case 'admin-users':

@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const TEST_USER_ID = 'test-user';
+import { requireAuth } from '@/lib/auth';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+
   try {
     const body = await req.json();
     const updated = await prisma.kanbanColumn.updateMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
       data: {
         ...(body.name !== undefined && { name: body.name.trim() }),
         ...(body.color !== undefined && { color: body.color }),
@@ -26,11 +28,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+
   try {
-    // Delete all cards in this column first
     await prisma.kanbanCard.deleteMany({ where: { column_id: id } });
-    const deleted = await prisma.kanbanColumn.deleteMany({ where: { id, user_id: TEST_USER_ID } });
+    const deleted = await prisma.kanbanColumn.deleteMany({ where: { id, user_id: auth.userId } });
     if (!deleted.count) return NextResponse.json({ error: 'Coluna não encontrada' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {

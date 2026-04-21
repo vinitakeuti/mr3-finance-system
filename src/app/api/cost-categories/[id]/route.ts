@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
-const TEST_USER_ID = 'test-user';
-
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
     const body = await req.json();
@@ -18,7 +16,7 @@ export async function PATCH(
     if (body.sort_order !== undefined) data.sort_order = body.sort_order;
 
     const updated = await prisma.costCategory.updateMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
       data,
     });
 
@@ -26,12 +24,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Categoria não encontrada' }, { status: 404 });
     }
 
-    // If name changed, update all costs with the old category name
     if (data.name) {
       const cat = await prisma.costCategory.findUnique({ where: { id } });
       if (cat) {
         await prisma.cost.updateMany({
-          where: { category_id: id, user_id: TEST_USER_ID },
+          where: { category_id: id, user_id: auth.userId },
           data: { category: String(data.name) },
         });
       }
@@ -51,28 +48,25 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
-    // Check if there are costs linked to this category
     const costsCount = await prisma.cost.count({
-      where: { category_id: id, user_id: TEST_USER_ID, is_active: true },
+      where: { category_id: id, user_id: auth.userId, is_active: true },
     });
 
     if (costsCount > 0) {
-      // Unlink costs from this category (keep them, just remove category_id)
       await prisma.cost.updateMany({
-        where: { category_id: id, user_id: TEST_USER_ID },
+        where: { category_id: id, user_id: auth.userId },
         data: { category_id: null },
       });
     }
 
     const deleted = await prisma.costCategory.deleteMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
     });
 
     if (!deleted.count) {

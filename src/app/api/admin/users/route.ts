@@ -11,10 +11,23 @@ export async function GET() {
         name: true,
         role: true,
         isActive: true,
+        permissions: {
+          where: { feature: 'vault' },
+          select: { canRead: true },
+        },
       },
     });
 
-    return NextResponse.json(users);
+    const result = users.map(u => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      isActive: u.isActive,
+      canAccessVault: u.role === 'MASTER' || !!u.permissions[0]?.canRead,
+    }));
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Erro em GET /api/admin/users', error);
     return NextResponse.json(
@@ -26,7 +39,7 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { id, role, isActive } = await req.json();
+    const { id, role, isActive, canAccessVault } = await req.json();
 
     if (!id) {
       return NextResponse.json(
@@ -39,26 +52,44 @@ export async function PATCH(req: NextRequest) {
     if (role) data.role = role;
     if (typeof isActive === 'boolean') data.isActive = isActive;
 
-    if (Object.keys(data).length === 0) {
-      return NextResponse.json(
-        { error: 'Nada para atualizar' },
-        { status: 400 },
-      );
+    let updated;
+    if (Object.keys(data).length > 0) {
+      updated = await prisma.user.update({
+        where: { id },
+        data,
+        select: { id: true, email: true, name: true, role: true, isActive: true },
+      });
+    } else {
+      updated = await prisma.user.findUnique({
+        where: { id },
+        select: { id: true, email: true, name: true, role: true, isActive: true },
+      });
     }
 
-    const updated = await prisma.user.update({
-      where: { id },
-      data,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        isActive: true,
-      },
+    // Handle vault permission toggle
+    if (typeof canAccessVault === 'boolean') {
+      if (canAccessVault) {
+        await prisma.featurePermission.upsert({
+          where: { userId_feature: { userId: id, feature: 'vault' } },
+          update: { canRead: true },
+          create: { userId: id, feature: 'vault', canRead: true },
+        });
+      } else {
+        await prisma.featurePermission.deleteMany({
+          where: { userId: id, feature: 'vault' },
+        });
+      }
+    }
+
+    // Re-fetch vault permission
+    const vaultPerm = await prisma.featurePermission.findUnique({
+      where: { userId_feature: { userId: id, feature: 'vault' } },
     });
 
-    return NextResponse.json(updated);
+    return NextResponse.json({
+      ...updated,
+      canAccessVault: updated!.role === 'MASTER' || !!vaultPerm?.canRead,
+    });
   } catch (error) {
     console.error('Erro em PATCH /api/admin/users', error);
     return NextResponse.json(
@@ -67,4 +98,3 @@ export async function PATCH(req: NextRequest) {
     );
   }
 }
-

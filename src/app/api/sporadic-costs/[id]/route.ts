@@ -1,30 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
-const TEST_USER_ID = 'test-user';
-
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
     const body = await req.json();
     const { name, description, amount, date, category } = body;
 
     const updated = await prisma.sporadicCost.updateMany({
-      where: {
-        id,
-        user_id: TEST_USER_ID,
-      },
-      data: {
-        name: name ?? undefined,
-        description: description ?? undefined,
-        amount: amount ?? undefined,
-        date: date ? new Date(date) : undefined,
-        category: category ?? undefined,
-      },
+      where: { id, user_id: auth.userId },
+      data: { name: name ?? undefined, description: description ?? undefined, amount: amount ?? undefined, date: date ? new Date(date) : undefined, category: category ?? undefined },
     });
 
     if (!updated.count) {
@@ -33,16 +22,8 @@ export async function PATCH(
 
     const cost = await prisma.sporadicCost.findUnique({
       where: { id },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        amount: true,
-        date: true,
-        category: true,
-      },
+      select: { id: true, name: true, description: true, amount: true, date: true, category: true },
     });
-
     return NextResponse.json(cost);
   } catch (error) {
     console.error('Erro ao atualizar sporadic_cost', error);
@@ -50,28 +31,22 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
     const deleted = await prisma.sporadicCost.deleteMany({
-      where: {
-        id,
-        user_id: TEST_USER_ID,
-      },
+      where: { id, user_id: auth.userId },
     });
 
     if (!deleted.count) {
       return NextResponse.json({ error: 'Custo esporádico não encontrado' }, { status: 404 });
     }
-
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Erro ao excluir sporadic_cost', error);
     return NextResponse.json({ error: 'Erro ao excluir custo esporádico' }, { status: 500 });
   }
 }
-

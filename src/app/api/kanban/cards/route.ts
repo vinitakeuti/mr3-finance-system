@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const TEST_USER_ID = 'test-user';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { title, description, column_id } = await req.json();
     if (!title?.trim()) return NextResponse.json({ error: 'Título é obrigatório' }, { status: 400 });
@@ -13,7 +15,7 @@ export async function POST(req: NextRequest) {
     const nextOrder = (maxOrder._max.sort_order ?? -1) + 1;
 
     const card = await prisma.kanbanCard.create({
-      data: { title: title.trim(), description: description || null, column_id, sort_order: nextOrder, user_id: TEST_USER_ID },
+      data: { title: title.trim(), description: description || null, column_id, sort_order: nextOrder, user_id: auth.userId },
     });
     return NextResponse.json(card, { status: 201 });
   } catch (error) {

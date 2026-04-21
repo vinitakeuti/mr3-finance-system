@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/db';
+import { signToken, setAuthCookie } from '@/lib/auth';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,6 +10,23 @@ export async function POST(req: NextRequest) {
     if (!email || !password || !name) {
       return NextResponse.json(
         { error: 'Campos obrigatórios: nome, email, senha' },
+        { status: 400 },
+      );
+    }
+
+    // Validate password strength
+    if (password.length < 8) {
+      return NextResponse.json(
+        { error: 'A senha deve ter pelo menos 8 caracteres' },
+        { status: 400 },
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Formato de email inválido' },
         { status: 400 },
       );
     }
@@ -42,7 +60,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 12); // increased from 10
 
     const user = await prisma.user.create({
       data: {
@@ -64,7 +82,22 @@ export async function POST(req: NextRequest) {
       data: { used: true, usedAt: new Date() },
     });
 
-    return NextResponse.json(user, { status: 201 });
+    // Sign JWT
+    const token = await signToken({
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    const payload = {
+      ...user,
+      canAccessVault: user.role === 'MASTER',
+    };
+
+    const response = NextResponse.json(payload, { status: 201 });
+    setAuthCookie(response, token);
+
+    return response;
   } catch (error) {
     console.error('Erro em /api/auth/register', error);
     return NextResponse.json(
@@ -73,4 +106,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

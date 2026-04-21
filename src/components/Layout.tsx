@@ -8,7 +8,7 @@ import {
 import Image from 'next/image';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ interface LayoutProps {
   onViewChange: (view: string) => void;
 }
 
-const mainNav = [
+const allNav = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'costs', label: 'Custos', icon: Receipt },
   { id: 'entries', label: 'Lançamentos', icon: ArrowLeftRight },
@@ -24,9 +24,6 @@ const mainNav = [
   { id: 'vault', label: 'Cofre', icon: Lock },
   { id: 'kanban', label: 'Tarefas', icon: ClipboardList },
 ];
-
-// Subset for mobile bottom tabs (limited space)
-const mobileTabNav = mainNav.filter(i => !['vault', 'kanban'].includes(i.id));
 
 const adminNav = [
   { id: 'admin-users', label: 'Usuários', icon: Users },
@@ -52,8 +49,12 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
 
   const go = (id: string) => { onViewChange(id); setDrawerOpen(false); };
   const isAdmin = user?.role === 'MASTER';
+  const canVault = user?.canAccessVault ?? false;
 
-  const NavItem = ({ item, compact = false }: { item: typeof mainNav[0]; compact?: boolean }) => {
+  const mainNav = useMemo(() => canVault ? allNav : allNav.filter(i => i.id !== 'vault'), [canVault]);
+  const mobileTabNav = useMemo(() => mainNav.filter(i => i.id !== 'vault'), [mainNav]);
+
+  const NavItem = ({ item, compact = false }: { item: typeof allNav[0]; compact?: boolean }) => {
     const active = currentView === item.id;
     return (
       <button

@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';
 
@@ -9,6 +9,7 @@ interface AuthUser {
   email: string;
   name: string;
   role: Role;
+  canAccessVault: boolean;
 }
 
 interface AuthContextType {
@@ -75,6 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    // Clear server-side cookie
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     setUser(null);
     localStorage.removeItem(STORAGE_KEY);
   };

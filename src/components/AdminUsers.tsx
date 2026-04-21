@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Lock } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
 type Role = 'MASTER' | 'CONTADOR' | 'CONSULTOR' | 'DESIGNER';
-interface User { id: string; email: string; name: string; role: Role; isActive: boolean }
+interface User { id: string; email: string; name: string; role: Role; isActive: boolean; canAccessVault: boolean }
 const ROLES: Role[] = ['MASTER', 'CONTADOR', 'CONSULTOR', 'DESIGNER'];
 
 export function AdminUsers() {
@@ -24,7 +24,7 @@ export function AdminUsers() {
     })();
   }, []);
 
-  const updateUser = async (id: string, patch: Partial<Pick<User, 'role' | 'isActive'>>) => {
+  const updateUser = async (id: string, patch: Partial<Pick<User, 'role' | 'isActive' | 'canAccessVault'>>) => {
     try {
       const res = await fetch('/api/admin/users', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, ...patch }) });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Erro'); }
@@ -61,6 +61,7 @@ export function AdminUsers() {
                   <th className="text-left px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium text-neutral-400">Nome</th>
                   <th className="text-left px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium text-neutral-400">Email</th>
                   <th className="text-left px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium text-neutral-400">Papel</th>
+                  <th className="text-center px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium text-neutral-400">Cofre</th>
                   <th className="text-center px-4 py-2.5 text-[11px] uppercase tracking-wider font-medium text-neutral-400">Status</th>
                   <th className="w-12 px-4 py-2.5"></th>
                 </tr>
@@ -74,6 +75,16 @@ export function AdminUsers() {
                       <select value={user.role} onChange={e => updateUser(user.id, { role: e.target.value as Role })} className="h-8 px-2 text-[13px] bg-transparent border border-neutral-200 dark:border-neutral-800 rounded-md text-neutral-900 dark:text-white focus:outline-none">
                         {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                       </select>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {user.role === 'MASTER' ? (
+                        <span className="text-[11px] text-neutral-400">Automático</span>
+                      ) : (
+                        <button onClick={() => updateUser(user.id, { canAccessVault: !user.canAccessVault })} className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${user.canAccessVault ? 'text-positive bg-positive/10' : 'text-neutral-400 bg-neutral-100 dark:bg-neutral-800'}`}>
+                          <Lock className="w-3 h-3" />
+                          {user.canAccessVault ? 'Sim' : 'Não'}
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button onClick={() => updateUser(user.id, { isActive: !user.isActive })} className={`text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${user.isActive ? 'text-positive bg-positive/10' : 'text-neutral-400 bg-neutral-100 dark:bg-neutral-800'}`}>
@@ -105,9 +116,17 @@ export function AdminUsers() {
                   </button>
                 </div>
                 <div className="flex items-center justify-between">
-                  <select value={user.role} onChange={e => updateUser(user.id, { role: e.target.value as Role })} className="h-8 px-2 text-[13px] bg-transparent border border-neutral-200 dark:border-neutral-800 rounded-md text-neutral-900 dark:text-white focus:outline-none">
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select value={user.role} onChange={e => updateUser(user.id, { role: e.target.value as Role })} className="h-8 px-2 text-[13px] bg-transparent border border-neutral-200 dark:border-neutral-800 rounded-md text-neutral-900 dark:text-white focus:outline-none">
+                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                    {user.role !== 'MASTER' && (
+                      <button onClick={() => updateUser(user.id, { canAccessVault: !user.canAccessVault })} className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md transition-colors ${user.canAccessVault ? 'text-positive bg-positive/10' : 'text-neutral-400 bg-neutral-100 dark:bg-neutral-800'}`}>
+                        <Lock className="w-3 h-3" />
+                        {user.canAccessVault ? 'Cofre' : 'Cofre'}
+                      </button>
+                    )}
+                  </div>
                   <button onClick={() => deleteUser(user)} className="p-1.5 text-neutral-400 hover:text-negative transition-colors">
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

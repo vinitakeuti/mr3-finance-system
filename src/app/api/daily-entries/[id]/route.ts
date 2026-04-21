@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
-const TEST_USER_ID = 'test-user';
-
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
     const body = await req.json();
@@ -19,7 +17,7 @@ export async function PATCH(
     if (body.category_id !== undefined) data.category_id = body.category_id || null;
 
     const updated = await prisma.dailyEntry.updateMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
       data,
     });
 
@@ -38,15 +36,14 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
     const deleted = await prisma.dailyEntry.deleteMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
     });
 
     if (!deleted.count) {

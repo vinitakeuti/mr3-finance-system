@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const TEST_USER_ID = 'test-user';
+import { requireAuth } from '@/lib/auth';
 
 function computeTotal(calc_type: string, amount: number, quantity?: number | null, reference_value?: number | null): number {
   switch (calc_type) {
@@ -15,24 +14,21 @@ function computeTotal(calc_type: string, amount: number, quantity?: number | nul
   }
 }
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
     const body = await req.json();
     const { name, description, category, category_id, recurrence, month, due_day, calc_type, amount, quantity, reference_value, is_active } = body;
 
-    // Build update data
     const data: Record<string, unknown> = {};
     if (name !== undefined) data.name = name;
     if (description !== undefined) data.description = description || null;
     if (category !== undefined) data.category = category;
     if (category_id !== undefined) {
       data.category_id = category_id || null;
-      // Resolve category name from id
       if (category_id) {
         const cat = await prisma.costCategory.findUnique({ where: { id: category_id } });
         if (cat) data.category = cat.name;
@@ -47,9 +43,8 @@ export async function PATCH(
     if (reference_value !== undefined) data.reference_value = reference_value ? parseFloat(reference_value) : null;
     if (is_active !== undefined) data.is_active = is_active;
 
-    // Recompute total if any calculation field changed
     if (amount !== undefined || quantity !== undefined || reference_value !== undefined || calc_type !== undefined) {
-      const existing = await prisma.cost.findFirst({ where: { id, user_id: TEST_USER_ID } });
+      const existing = await prisma.cost.findFirst({ where: { id, user_id: auth.userId } });
       if (!existing) {
         return NextResponse.json({ error: 'Custo não encontrado' }, { status: 404 });
       }
@@ -61,7 +56,7 @@ export async function PATCH(
     }
 
     const updated = await prisma.cost.updateMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
       data,
     });
 
@@ -80,15 +75,14 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const { id } = params;
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+  const { id } = await params;
 
   try {
     const deleted = await prisma.cost.deleteMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
     });
 
     if (!deleted.count) {

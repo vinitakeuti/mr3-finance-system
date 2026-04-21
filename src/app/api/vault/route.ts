@@ -1,12 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
-const TEST_USER_ID = 'test-user';
+async function checkVaultAccess(userId: string, role: string): Promise<boolean> {
+  if (role === 'MASTER') return true;
+  const perm = await prisma.featurePermission.findUnique({
+    where: { userId_feature: { userId, feature: 'vault' } },
+  });
+  return !!perm?.canRead;
+}
 
 export async function GET() {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
+  if (!(await checkVaultAccess(auth.userId, auth.role))) {
+    return NextResponse.json({ error: 'Acesso negado ao cofre' }, { status: 403 });
+  }
+
   try {
     const items = await prisma.vaultItem.findMany({
-      where: { user_id: TEST_USER_ID },
+      where: { user_id: auth.userId },
       orderBy: [{ updated_at: 'desc' }],
       include: { categoryRef: { select: { id: true, name: true, color: true } } },
     });
@@ -18,6 +32,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
+  if (!(await checkVaultAccess(auth.userId, auth.role))) {
+    return NextResponse.json({ error: 'Acesso negado ao cofre' }, { status: 403 });
+  }
+
   try {
     const { name, content, link, category_id } = await req.json();
 
@@ -31,7 +52,7 @@ export async function POST(req: NextRequest) {
         content: content || '',
         link: link || null,
         category_id: category_id || null,
-        user_id: TEST_USER_ID,
+        user_id: auth.userId,
       },
       include: { categoryRef: { select: { id: true, name: true, color: true } } },
     });

@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const TEST_USER_ID = 'test-user';
+import { requireAuth } from '@/lib/auth';
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+
   try {
     const { name, color } = await req.json();
     const updated = await prisma.vaultCategory.updateMany({
-      where: { id, user_id: TEST_USER_ID },
+      where: { id, user_id: auth.userId },
       data: {
         ...(name !== undefined && { name: name.trim() }),
         ...(color !== undefined && { color }),
@@ -29,10 +31,13 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
   const { id } = await params;
+
   try {
-    await prisma.vaultItem.updateMany({ where: { category_id: id, user_id: TEST_USER_ID }, data: { category_id: null } });
-    const deleted = await prisma.vaultCategory.deleteMany({ where: { id, user_id: TEST_USER_ID } });
+    await prisma.vaultItem.updateMany({ where: { category_id: id, user_id: auth.userId }, data: { category_id: null } });
+    const deleted = await prisma.vaultCategory.deleteMany({ where: { id, user_id: auth.userId } });
     if (!deleted.count) return NextResponse.json({ error: 'Categoria não encontrada' }, { status: 404 });
     return NextResponse.json({ success: true });
   } catch (error) {

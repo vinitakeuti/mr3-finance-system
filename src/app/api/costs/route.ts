@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const TEST_USER_ID = 'test-user';
+import { requireAuth } from '@/lib/auth';
 
 function computeTotal(calc_type: string, amount: number, quantity?: number | null, reference_value?: number | null): number {
   switch (calc_type) {
@@ -16,16 +15,18 @@ function computeTotal(calc_type: string, amount: number, quantity?: number | nul
 }
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   const { searchParams } = new URL(req.url);
-  const month = searchParams.get('month'); // YYYY-MM
+  const month = searchParams.get('month');
 
   try {
     if (month) {
       const monthDate = new Date(`${month}-01`);
-      // Get MONTHLY costs (active) + ONE_TIME costs for this specific month
       const costs = await prisma.cost.findMany({
         where: {
-          user_id: TEST_USER_ID,
+          user_id: auth.userId,
           is_active: true,
           OR: [
             { recurrence: 'MONTHLY' },
@@ -38,9 +39,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(costs);
     }
 
-    // No month filter: return all active costs
     const costs = await prisma.cost.findMany({
-      where: { user_id: TEST_USER_ID, is_active: true },
+      where: { user_id: auth.userId, is_active: true },
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
       include: { categoryRef: { select: { id: true, name: true, color: true } } },
     });
@@ -52,17 +52,18 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json();
     const { name, description, category_id, recurrence, month, due_day, calc_type, amount, quantity, reference_value } = body;
-    // Support legacy 'category' string field too
     const categoryName = body.category as string | undefined;
 
     if (!name || (!category_id && !categoryName)) {
       return NextResponse.json({ error: 'Campos obrigatórios: name, category_id ou category' }, { status: 400 });
     }
 
-    // Resolve category name from category_id if provided
     let resolvedCategoryName = categoryName || '';
     if (category_id) {
       const cat = await prisma.costCategory.findUnique({ where: { id: category_id } });
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         quantity: quantityNum,
         reference_value: refNum,
         total,
-        user_id: TEST_USER_ID,
+        user_id: auth.userId,
       },
       include: { categoryRef: { select: { id: true, name: true, color: true } } },
     });

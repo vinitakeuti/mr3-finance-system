@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-
-const TEST_USER_ID = 'test-user';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   const { searchParams } = new URL(req.url);
-  const month = searchParams.get('month'); // YYYY-MM
-  const date = searchParams.get('date');   // YYYY-MM-DD
+  const month = searchParams.get('month');
+  const date = searchParams.get('date');
 
   try {
-    let where: any = { user_id: TEST_USER_ID };
+    let where: any = { user_id: auth.userId };
 
     if (date) {
-      // Single day
       const dayStart = new Date(`${date}T00:00:00`);
       const dayEnd = new Date(`${date}T23:59:59.999`);
       where.date = { gte: dayStart, lte: dayEnd };
     } else if (month) {
-      // Full month
       const [y, m] = month.split('-').map(Number);
       const start = new Date(y, m - 1, 1);
       const end = new Date(y, m, 0, 23, 59, 59, 999);
@@ -37,11 +37,10 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Summary endpoint via query param
-// GET /api/daily-entries?month=2025-04&summary=true
-// Returns: { totalIncome, totalExpense, balance, byDay: [...] }
-
 export async function POST(req: NextRequest) {
+  const auth = await requireAuth();
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json();
     const { date, type, amount, description, category_id } = body;
@@ -61,7 +60,7 @@ export async function POST(req: NextRequest) {
         amount: parseFloat(amount) || 0,
         description: description || null,
         category_id: category_id || null,
-        user_id: TEST_USER_ID,
+        user_id: auth.userId,
       },
       include: { categoryRef: { select: { id: true, name: true, color: true } } },
     });
