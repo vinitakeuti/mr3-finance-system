@@ -1,39 +1,30 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, Users } from 'lucide-react';
 import { SectionHeader } from './SectionHeader';
 
-interface FinancialMetrics {
-  totalRevenue: number;
-  totalFixedCosts: number;
-  totalVariableCosts: number;
-  totalSporadicCosts: number;
-  grossProfit: number;
-  netProfit: number;
-  profitPerPartner: number;
-  unpaidFixedCosts: number;
+interface DailyEntry {
+  id: string;
+  type: 'INCOME' | 'EXPENSE';
+  amount: number;
+  date: string;
+  description: string | null;
+  categoryRef: { id: string; name: string; color: string } | null;
 }
 
-interface FixedCostSummary {
+interface CostSummary {
   id: string;
   name: string;
-  amount: number;
-  due_day: number;
+  category: string;
+  categoryColor: string;
+  total: number;
+  due_day: number | null;
+  recurrence: string;
 }
 
 export function Dashboard() {
-  const [metrics, setMetrics] = useState<FinancialMetrics>({
-    totalRevenue: 0,
-    totalFixedCosts: 0,
-    totalVariableCosts: 0,
-    totalSporadicCosts: 0,
-    grossProfit: 0,
-    netProfit: 0,
-    profitPerPartner: 0,
-    unpaidFixedCosts: 0,
-  });
-  const [fixedCosts, setFixedCosts] = useState<FixedCostSummary[]>([]);
+  const [dailyEntries, setDailyEntries] = useState<DailyEntry[]>([]);
+  const [costsList, setCostsList] = useState<CostSummary[]>([]);
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -41,282 +32,131 @@ export function Dashboard() {
 
   useEffect(() => {
     const load = async () => {
-      setMetrics(prev => ({ ...prev, unpaidFixedCosts: 0 }));
-
-      const monthParam = selectedMonth;
-      const monthQuery = `month=${encodeURIComponent(monthParam)}`;
-
+      const monthQuery = `month=${encodeURIComponent(selectedMonth)}`;
       try {
-        const [revenueRes, variableRes, sporadicRes, fixedRes] = await Promise.all([
-          fetch(`/api/revenue?${monthQuery}`),
-          fetch(`/api/variable-costs?${monthQuery}`),
-          fetch(`/api/sporadic-costs?${monthQuery}`),
-          fetch('/api/fixed-costs'),
+        const [entriesRes, costsRes] = await Promise.all([
+          fetch(`/api/daily-entries?${monthQuery}`),
+          fetch(`/api/costs?${monthQuery}`),
         ]);
+        const entriesData = entriesRes.ok ? await entriesRes.json() : [];
+        const costsData = costsRes.ok ? await costsRes.json() : [];
 
-        const revenueData = revenueRes.ok ? await revenueRes.json() : null;
-        const variableData = variableRes.ok ? await variableRes.json() : null;
-        const sporadicData = sporadicRes.ok ? await sporadicRes.json() : [];
-        const fixedData = fixedRes.ok ? await fixedRes.json() : [];
+        if (Array.isArray(entriesData)) {
+          setDailyEntries(entriesData.map((e: any) => ({
+            id: String(e.id),
+            type: e.type as 'INCOME' | 'EXPENSE',
+            amount: Number(e.amount ?? 0),
+            date: String(e.date),
+            description: e.description || null,
+            categoryRef: e.categoryRef || null,
+          })));
+        }
 
-        setFixedCosts(
-          Array.isArray(fixedData)
-            ? fixedData.map((f: any) => ({
-                id: String(f.id),
-                name: String(f.name),
-                amount: Number(f.amount || 0),
-                due_day: Number(f.due_day || 1),
-              }))
-            : [],
-        );
-
-        const totalRevenue = revenueData?.total_revenue ? Number(revenueData.total_revenue) : 0;
-        const trafficInvestment = revenueData?.traffic_investment
-          ? Number(revenueData.traffic_investment)
-          : 0;
-
-        const totalFixedCosts =
-          Array.isArray(fixedData) && fixedData.length
-            ? fixedData.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
-            : 0;
-
-        const totalVariableCosts = variableData
-          ? Number(variableData.ad_accounts_purchase || 0) +
-            Number(variableData.gateway_percentage || 0) +
-            Number(variableData.withdrawal_count || 0) * 10 +
-            Number(variableData.p2p_transfers || 0) * 0.05
-          : 0;
-
-        const totalSporadicCosts =
-          Array.isArray(sporadicData) && sporadicData.length
-            ? sporadicData.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0)
-            : 0;
-
-        const grossProfit = totalRevenue - trafficInvestment;
-        const netProfit =
-          grossProfit - totalFixedCosts - totalVariableCosts - totalSporadicCosts;
-        const profitPerPartner = netProfit * 0.5;
-
-        setMetrics({
-          totalRevenue,
-          totalFixedCosts,
-          totalVariableCosts,
-          totalSporadicCosts,
-          grossProfit,
-          netProfit,
-          profitPerPartner,
-          unpaidFixedCosts: 0,
-        });
+        if (Array.isArray(costsData)) {
+          setCostsList(costsData.map((c: any) => ({
+            id: String(c.id),
+            name: String(c.name),
+            category: c.categoryRef?.name || String(c.category || 'Outros'),
+            categoryColor: c.categoryRef?.color || '#737373',
+            total: Number(c.total ?? 0),
+            due_day: c.due_day ?? null,
+            recurrence: c.recurrence || 'MONTHLY',
+          })));
+        }
       } catch (error) {
         console.error('Erro ao carregar métricas do dashboard', error);
       }
     };
-
     load();
   }, [selectedMonth]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
+  const fmt = (v: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  const fmtDate = (d: Date) => new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short' }).format(d);
 
-  const formatDate = (date: Date) => {
-    return new Intl.DateTimeFormat('pt-BR', {
-      day: '2-digit',
-      month: 'short',
-    }).format(date);
-  };
+  // ── Aggregates ──
+  const totalIncome = useMemo(() => dailyEntries.filter(e => e.type === 'INCOME').reduce((s, e) => s + e.amount, 0), [dailyEntries]);
+  const totalExpenses = useMemo(() => dailyEntries.filter(e => e.type === 'EXPENSE').reduce((s, e) => s + e.amount, 0), [dailyEntries]);
+  const totalCosts = useMemo(() => costsList.reduce((s, c) => s + c.total, 0), [costsList]);
+  const netProfit = totalIncome - totalCosts - totalExpenses;
+  const margin = totalIncome > 0 ? (netProfit / totalIncome) * 100 : 0;
 
-  const StatCard = ({
-    title,
-    value,
-    icon: Icon,
-    trend,
-  }: {
-    title: string;
-    value: string;
-    icon: typeof TrendingUp;
-    trend?: 'up' | 'down';
-  }) => (
-    <div className="border border-black dark:border-white p-6">
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">{title}</p>
-          <p className="text-2xl font-bold text-black dark:text-white">{value}</p>
-        </div>
-        <div
-          className={`p-2 ${
-            trend === 'up'
-              ? 'bg-black dark:bg-white'
-              : trend === 'down'
-              ? 'bg-red-500'
-              : 'bg-gray-200 dark:bg-gray-800'
-          }`}
-        >
-          <Icon
-            className={`w-5 h-5 ${
-              trend === 'up'
-                ? 'text-white dark:text-black'
-                : trend === 'down'
-                ? 'text-white'
-                : 'text-black dark:text-white'
-            }`}
-          />
-        </div>
-      </div>
-    </div>
-  );
-
+  // ── Upcoming payments ──
   const upcomingPayments = useMemo(() => {
-    if (!fixedCosts.length) return [];
-    const [yearStr, monthStr] = selectedMonth.split('-');
-    const year = Number(yearStr);
-    const month = Number(monthStr) - 1;
+    const monthly = costsList.filter(c => c.recurrence === 'MONTHLY' && c.due_day);
+    if (!monthly.length) return [];
+    const [y, m] = selectedMonth.split('-').map(Number);
     const today = new Date();
     const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-
-    const items = fixedCosts.map(cost => {
-      const date = new Date(year, month, cost.due_day || 1);
-      return { ...cost, date };
-    });
-
-    return items
-      .filter(item => {
-        // se for o mês atual, só mostrar de hoje em diante
-        if (
-          item.date.getFullYear() === todayStart.getFullYear() &&
-          item.date.getMonth() === todayStart.getMonth()
-        ) {
-          return item.date >= todayStart;
-        }
-        // se for outro mês selecionado, mostra todos daquele mês
-        return true;
-      })
+    return monthly
+      .map(c => ({ ...c, date: new Date(y, m - 1, c.due_day || 1) }))
+      .filter(i => (i.date.getFullYear() === todayStart.getFullYear() && i.date.getMonth() === todayStart.getMonth()) ? i.date >= todayStart : true)
       .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .slice(0, 5);
-  }, [fixedCosts, selectedMonth]);
+      .slice(0, 6);
+  }, [costsList, selectedMonth]);
 
   return (
-    <div className="space-y-8">
+    <div>
       <SectionHeader
-        title="Dashboard Financeiro"
+        title="Dashboard"
         rightSlot={
-          <div>
-            <label className="block text-sm font-medium text-black dark:text-white mb-2">
-              Selecionar Mês
-            </label>
-            <input
-              type="month"
-              value={selectedMonth}
-              onChange={e => setSelectedMonth(e.target.value)}
-              className="px-4 py-2 border border-black dark:border-white bg-transparent text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
-            />
-          </div>
+          <input
+            type="month"
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="h-9 px-3 text-sm bg-transparent border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 transition-colors"
+          />
         }
       />
 
-      {metrics.unpaidFixedCosts > 0 && (
-        <div className="border border-red-500 bg-red-50 dark:bg-red-900/20 p-4">
-          <p className="text-sm text-red-600 dark:text-red-400">
-            Atenção: Você tem {metrics.unpaidFixedCosts} custo(s) fixo(s) não pago(s) este mês.
+      {/* ── Hero metrics ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-px bg-neutral-200 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-800 rounded-lg overflow-hidden mb-8">
+        {/* Lucro — spans full width on mobile, left column on desktop */}
+        <div className="col-span-2 lg:col-span-1 lg:row-span-2 bg-white dark:bg-neutral-925 p-6 flex flex-col justify-center">
+          <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-1">Lucro Líquido</p>
+          <p className={`text-2xl lg:text-3xl font-semibold font-mono tabular-nums ${netProfit < 0 ? 'text-negative' : 'text-positive'}`}>
+            {fmt(netProfit)}
+          </p>
+          <p className={`text-[13px] font-mono tabular-nums mt-1 ${margin < 0 ? 'text-negative/70' : 'text-neutral-400'}`}>
+            {margin.toFixed(1)}% de margem
           </p>
         </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Faturamento Total"
-          value={formatCurrency(metrics.totalRevenue)}
-          icon={DollarSign}
-          trend="up"
-        />
-        <StatCard
-          title="Lucro Bruto"
-          value={formatCurrency(metrics.grossProfit)}
-          icon={TrendingUp}
-          trend={metrics.grossProfit > 0 ? 'up' : 'down'}
-        />
-        <StatCard
-          title="Lucro Líquido"
-          value={formatCurrency(metrics.netProfit)}
-          icon={TrendingUp}
-          trend={metrics.netProfit > 0 ? 'up' : 'down'}
-        />
-        <StatCard
-          title="Lucro por Sócio (50%)"
-          value={formatCurrency(metrics.profitPerPartner)}
-          icon={Users}
-          trend={metrics.profitPerPartner > 0 ? 'up' : 'down'}
-        />
+        <div className="bg-white dark:bg-neutral-925 p-5">
+          <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">Faturamento</p>
+          <p className="text-lg font-semibold font-mono tabular-nums text-neutral-900 dark:text-white">{fmt(totalIncome)}</p>
+        </div>
+        <div className="bg-white dark:bg-neutral-925 p-5">
+          <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">Por Sócio (50%)</p>
+          <p className={`text-lg font-semibold font-mono tabular-nums ${netProfit < 0 ? 'text-negative' : 'text-neutral-900 dark:text-white'}`}>{fmt(netProfit * 0.5)}</p>
+        </div>
+        <div className="bg-white dark:bg-neutral-925 p-5">
+          <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">Custos Fixos</p>
+          <p className="text-lg font-semibold font-mono tabular-nums text-neutral-900 dark:text-white">{fmt(totalCosts)}</p>
+        </div>
+        <div className="bg-white dark:bg-neutral-925 p-5">
+          <p className="text-[11px] uppercase tracking-wider text-neutral-400 dark:text-neutral-500 mb-2">Despesas</p>
+          <p className="text-lg font-semibold font-mono tabular-nums text-neutral-900 dark:text-white">{fmt(totalExpenses)}</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="border border-black dark:border-white p-6 lg:col-span-2">
-          <h3 className="text-xl font-bold text-black dark:text-white mb-6">
-            Resumo de Custos
-          </h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
-              <span className="text-gray-600 dark:text-gray-400">Custos Fixos</span>
-              <span className="font-medium text-black dark:text-white">
-                {formatCurrency(metrics.totalFixedCosts)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
-              <span className="text-gray-600 dark:text-gray-400">Custos Variáveis</span>
-              <span className="font-medium text-black dark:text-white">
-                {formatCurrency(metrics.totalVariableCosts)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center pb-3 border-b border-gray-200 dark:border-gray-800">
-              <span className="text-gray-600 dark:text-gray-400">Custos Esporádicos</span>
-              <span className="font-medium text-black dark:text-white">
-                {formatCurrency(metrics.totalSporadicCosts)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center pt-3">
-              <span className="font-bold text-black dark:text-white">Total de Custos</span>
-              <span className="font-bold text-black dark:text-white">
-                {formatCurrency(
-                  metrics.totalFixedCosts +
-                    metrics.totalVariableCosts +
-                    metrics.totalSporadicCosts,
-                )}
-              </span>
-            </div>
+      {/* ── Próximos vencimentos ── */}
+      <div>
+        <h3 className="text-[13px] font-medium text-neutral-900 dark:text-white mb-4">Próximos vencimentos</h3>
+        {upcomingPayments.length === 0 ? (
+          <p className="text-[13px] text-neutral-400 dark:text-neutral-600">Nenhum vencimento próximo.</p>
+        ) : (
+          <div className="space-y-0">
+            {upcomingPayments.map(item => (
+              <div key={item.id} className="flex justify-between items-center py-2.5 border-b border-neutral-100 dark:border-neutral-800/50 last:border-0">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] text-neutral-900 dark:text-white truncate">{item.name}</p>
+                  <p className="text-[11px] text-neutral-400 font-mono">{fmt(item.total)}</p>
+                </div>
+                <span className="text-[11px] text-neutral-500 ml-4 whitespace-nowrap">{fmtDate(item.date)}</span>
+              </div>
+            ))}
           </div>
-        </div>
-
-        <div className="border border-black dark:border-white p-6">
-          <h3 className="text-xl font-bold text-black dark:text-white mb-4">
-            Próximos Custos Fixos
-          </h3>
-          {upcomingPayments.length === 0 ? (
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              Nenhum custo fixo próximo para o mês selecionado.
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {upcomingPayments.map(item => (
-                <li key={item.id} className="flex justify-between items-center">
-                  <div>
-                    <p className="font-medium text-black dark:text-white">{item.name}</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      {formatCurrency(item.amount)}
-                    </p>
-                  </div>
-                  <span className="text-sm font-medium text-black dark:text-white">
-                    {formatDate(item.date)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
 }
-

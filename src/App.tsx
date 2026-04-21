@@ -5,12 +5,13 @@ import { useAuth } from './contexts/AuthContext';
 import { AuthForm } from './components/AuthForm';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
-import { FixedCosts } from './components/FixedCosts';
-import { VariableCosts } from './components/VariableCosts';
-import { SporadicCosts } from './components/SporadicCosts';
+import { Costs } from './components/Costs';
 import { Revenue } from './components/Revenue';
+import { DailyEntries } from './components/DailyEntries';
 import { AdminUsers } from './components/AdminUsers';
 import { AdminAllowedEmails } from './components/AdminAllowedEmails';
+import { Vault } from './components/Vault';
+import { Kanban } from './components/Kanban';
 
 function App() {
   const { user, loading } = useAuth();
@@ -32,14 +33,16 @@ function App() {
     switch (currentView) {
       case 'dashboard':
         return <Dashboard />;
-      case 'fixed':
-        return <FixedCosts />;
-      case 'variable':
-        return <VariableCosts />;
-      case 'sporadic':
-        return <SporadicCosts />;
+      case 'costs':
+        return <Costs />;
+      case 'entries':
+        return <DailyEntries />;
       case 'revenue':
         return <Revenue />;
+      case 'vault':
+        return <Vault />;
+      case 'kanban':
+        return <Kanban />;
       case 'admin-users':
         return <AdminUsers />;
       case 'admin-allowed-emails':

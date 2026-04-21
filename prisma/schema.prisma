@@ -53,6 +53,139 @@ model FeaturePermission {
   @@map("feature_permissions")
 }
 
+enum EntryType {
+  INCOME
+  EXPENSE
+}
+
+model DailyEntry {
+  id          String    @id @default(uuid())
+  date        DateTime  // the specific day (stored as YYYY-MM-DD 00:00:00)
+  type        EntryType
+  amount      Decimal
+  description String?
+  category_id String?   // optional link to CostCategory (for expenses)
+  categoryRef CostCategory? @relation(fields: [category_id], references: [id])
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+  user_id     String
+
+  @@map("daily_entries")
+}
+
+enum CostRecurrence {
+  MONTHLY
+  ONE_TIME
+}
+
+enum CalcType {
+  FIXED
+  PERCENTAGE
+  PER_UNIT
+}
+
+model CostCategory {
+  id          String   @id @default(uuid())
+  name        String
+  color       String   @default("#737373") // hex color for UI
+  description String?
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  user_id      String
+  costs        Cost[]
+  dailyEntries DailyEntry[]
+
+  @@unique([user_id, name])
+  @@map("cost_categories")
+}
+
+model Cost {
+  id          String         @id @default(uuid())
+  name        String
+  description String?
+  category    String         // kept for backwards compat / display
+  category_id String?
+  categoryRef CostCategory?  @relation(fields: [category_id], references: [id])
+  recurrence  CostRecurrence @default(MONTHLY)
+  month       DateTime?      // for ONE_TIME: specific month (YYYY-MM-01)
+  due_day     Int?           // for MONTHLY: day of month
+
+  calc_type       CalcType @default(FIXED)
+  amount          Decimal  @default(0) // FIXED: total value; PER_UNIT: rate per unit; PERCENTAGE: rate %
+  quantity        Int?         // PER_UNIT: number of units
+  reference_value Decimal?     // PERCENTAGE: base value to apply % on
+  total           Decimal  @default(0) // computed final value
+
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user_id    String
+
+  @@map("costs")
+}
+
+// ─── Kanban (Tarefas) ────────────────────────────────────────
+
+model KanbanColumn {
+  id         String       @id @default(uuid())
+  name       String
+  color      String       @default("#737373")
+  sort_order Int          @default(0)
+  user_id    String
+  created_at DateTime     @default(now())
+  updated_at DateTime     @updatedAt
+  cards      KanbanCard[]
+
+  @@unique([user_id, name])
+  @@map("kanban_columns")
+}
+
+model KanbanCard {
+  id          String       @id @default(uuid())
+  title       String
+  description String?
+  column_id   String
+  column      KanbanColumn @relation(fields: [column_id], references: [id])
+  sort_order  Int          @default(0)
+  user_id     String
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  @@map("kanban_cards")
+}
+
+// ─── Vault (Cofre) ───────────────────────────────────────────
+
+model VaultCategory {
+  id          String      @id @default(uuid())
+  name        String
+  color       String      @default("#737373")
+  sort_order  Int         @default(0)
+  user_id     String
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+  items       VaultItem[]
+
+  @@unique([user_id, name])
+  @@map("vault_categories")
+}
+
+model VaultItem {
+  id          String         @id @default(uuid())
+  name        String
+  content     String         @default("")
+  link        String?
+  category_id String?
+  categoryRef VaultCategory? @relation(fields: [category_id], references: [id])
+  user_id     String
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
+
+  @@map("vault_items")
+}
+
+// Legacy tables kept for migration compatibility
 model FixedCost {
   id          String   @id @default(uuid())
   name        String
@@ -74,9 +207,9 @@ model VariableCost {
   ad_accounts_purchase Decimal  @default(0)
   gateway_percentage   Decimal  @default(0)
   withdrawal_count     Int      @default(0)
-  withdrawal_total     Decimal? // pode ser calculado, mas mantemos compatível
+  withdrawal_total     Decimal?
   p2p_transfers        Decimal  @default(0)
-  p2p_fees             Decimal? // idem
+  p2p_fees             Decimal?
   created_at           DateTime @default(now())
   updated_at           DateTime @updatedAt
   user_id              String

@@ -1,4 +1,4 @@
- 'use client';
+'use client';
 
 import { useState } from 'react';
 import Image from 'next/image';
@@ -15,82 +15,64 @@ export function AuthForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       await signIn(email, password);
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro ao autenticar';
-      setError(errorMessage);
+      setError(err instanceof Error ? err.message : 'Erro ao autenticar');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-black transition-colors">
-      <div className="w-full max-w-md px-4">
-        <div className="border border-black dark:border-white px-6 pt-10 pb-8">
-          <div className="flex flex-col items-center mb-6">
-            <div className="w-56 h-24 mb-3 relative">
-              <Image
-                src="/assets/images/logo.png"
-                alt="Logo Controle Financeiro"
-                fill
-                className="object-contain"
-                sizes="128px"
-                priority
-              />
-            </div>
-            <h1 className="text-3xl font-bold text-center text-black dark:text-white">
-              Controle Financeiro
-            </h1>
+    <div className="min-h-screen flex items-center justify-center bg-white dark:bg-neutral-950 px-4">
+      <div className="w-full max-w-sm">
+        <div className="flex justify-center mb-10">
+          <div className="relative h-8 w-36">
+            <Image src="/assets/images/logo.png" alt="MR3 Digital" fill className="object-contain" sizes="144px" priority />
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full h-10 px-3 text-sm bg-transparent border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 transition-colors"
+              placeholder="seu@email.com"
+            />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-black dark:text-white mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-3 border border-black dark:border-white bg-transparent text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
-                placeholder="seu@email.com"
-              />
-            </div>
+          <div>
+            <label className="block text-[13px] font-medium text-neutral-700 dark:text-neutral-300 mb-1.5">Senha</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="w-full h-10 px-3 text-sm bg-transparent border border-neutral-200 dark:border-neutral-800 rounded-lg text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:outline-none focus:border-neutral-400 dark:focus:border-neutral-600 transition-colors"
+              placeholder="••••••••"
+            />
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-black dark:text-white mb-2">
-                Senha
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="w-full px-4 py-3 border border-black dark:border-white bg-transparent text-black dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
-                placeholder="••••••••"
-              />
-            </div>
+          {error && (
+            <p className="text-[13px] text-negative">{error}</p>
+          )}
 
-            {error && (
-              <div className="border border-red-500 bg-red-50 dark:bg-red-900/20 p-3">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              </div>
-            )}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full h-10 bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 text-sm font-medium rounded-lg hover:bg-neutral-800 dark:hover:bg-neutral-100 transition-colors disabled:opacity-40"
+          >
+            {loading ? 'Entrando...' : 'Entrar'}
+          </button>
+        </form>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-black dark:bg-white text-white dark:text-black py-3 font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Processando...' : 'Entrar'}
-            </button>
-          </form>
-        </div>
+        <p className="text-center text-[11px] text-neutral-400 mt-8">Controle Financeiro &middot; MR3 Digital</p>
       </div>
     </div>
   );

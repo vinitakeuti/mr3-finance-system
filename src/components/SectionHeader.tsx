@@ -7,12 +7,11 @@ interface SectionHeaderProps {
 
 export function SectionHeader({ title, rightSlot }: SectionHeaderProps) {
   return (
-    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-      <h2 className="text-3xl font-bold text-black dark:text-white">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4 mb-8">
+      <h2 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-white">
         {title}
       </h2>
       {rightSlot && <div>{rightSlot}</div>}
     </div>
   );
 }
-
