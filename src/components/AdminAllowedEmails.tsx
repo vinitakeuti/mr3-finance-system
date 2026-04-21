@@ -13,7 +13,7 @@ export function AdminAllowedEmails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<Role>('MASTER');
+  const [role, setRole] = useState<Role>('CONSULTOR');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function AdminAllowedEmails() {
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Erro'); }
       const created = await res.json() as AllowedEmail;
       setItems(prev => [created, ...prev]);
-      setEmail(''); setRole('MASTER');
+      setEmail(''); setRole('CONSULTOR');
     } catch (err) { alert(err instanceof Error ? err.message : 'Erro'); }
     finally { setSubmitting(false); }
   };
